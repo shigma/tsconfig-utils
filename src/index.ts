@@ -1,42 +1,79 @@
 import { CompilerOptions } from 'typescript'
 import { SpawnOptions } from 'child_process'
 import { readFile } from 'fs/promises'
-import { resolve } from 'path'
+import { dirname, resolve } from 'path'
+import { alias, boolean } from './types'
 import spawn from 'cross-spawn'
 import json5 from 'json5'
 
-export interface tsconfig {
+export class TsConfig {
   extends?: string
   files?: string[]
-  references?: tsconfig.Reference[]
-  compilerOptions?: CompilerOptions
-}
+  references?: TsConfig.Reference[]
+  compilerOptions: CompilerOptions = {}
 
-export async function tsconfig(base: string) {
-  const config = await tsconfig.read(base)
-  while (config.extends) {
-    const parent = await tsconfig.read(resolve(base, '..', config.extends + '.json'))
-    config.compilerOptions = {
-      ...parent.compilerOptions,
-      ...config.compilerOptions,
-    }
-    config.extends = parent.extends
+  constructor(public cwd: string, public args: string[]) {}
+
+  private index(key: string) {
+    const names = [key, ...alias[key] || []].map(word => word.length > 1 ? `--${word}` : `-${word}`)
+    return this.args.findIndex(arg => names.some(name => arg.toLowerCase() === name))
   }
-  return config
+
+  get(key: string, fallback: string): string
+  get<K extends string>(key: K): CompilerOptions[K]
+  get(key: string, fallback?: any) {
+    const index = this.index(key)
+    if (index < 0) return fallback ?? this.compilerOptions[key]
+    if (boolean.includes(key)) {
+      return this.args[index + 1] !== 'false'
+    } else {
+      return this.args[index + 1]
+    }
+  }
+
+  set(key: string, value: string, override = true) {
+    const index = this.index(key)
+    if (index < 0) {
+      this.args.push(`--${key}`, value)
+    } else if (override) {
+      this.args.splice(index + 1, 1, value)
+    }
+  }
 }
 
-export namespace tsconfig {
+export namespace TsConfig {
   export interface Reference {
     path: string
   }
-
-  export async function read(base: string) {
-    const source = await readFile(base, 'utf8')
-    return json5.parse(source) as tsconfig
-  }
 }
 
-export default tsconfig
+const cache = new Map<string, TsConfig>()
+
+export async function read(filename: string) {
+  if (cache.has(filename)) return cache.get(filename)
+  const source = await readFile(filename, 'utf8')
+  const data = json5.parse(source) as TsConfig
+  cache.set(filename, data)
+  return data
+}
+
+export async function load(cwd: string, args: string[] = []) {
+  const config = new TsConfig(cwd, args)
+  let filename = resolve(cwd, config.get('project', 'tsconfig.json'))
+  const data = await read(filename)
+  while (data.extends) {
+    filename = resolve(dirname(filename), data.extends + '.json')
+    if (!filename.endsWith('.json')) filename += '.json'
+    const parent = await read(filename)
+    data.compilerOptions = {
+      ...parent.compilerOptions,
+      ...data.compilerOptions,
+    }
+    data.extends = parent.extends
+  }
+  Object.assign(config, data)
+  return config
+}
 
 function spawnAsync(args: string[], options?: SpawnOptions) {
   const child = spawn(args[0], args.slice(1), { ...options, stdio: 'inherit' })
@@ -48,14 +85,4 @@ function spawnAsync(args: string[], options?: SpawnOptions) {
 export async function compile(args: string[], options?: SpawnOptions) {
   const code = await spawnAsync(['tsc', ...args], options)
   if (code) process.exit(code)
-}
-
-export function option(args: string[], names: string[], fallback?: () => string, preserve = false) {
-  const index = args.findIndex(arg => names.some(name => arg.toLowerCase() === name))
-  if (index < 0) return fallback?.()
-  const value = args[index + 1]
-  if (!preserve) {
-    args.splice(index, 2)
-  }
-  return value
 }
