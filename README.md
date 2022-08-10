@@ -7,9 +7,20 @@ A collection of utilities for working with `tsconfig.json` files.
 ## Usage
 
 ```ts
-import tsconfig from 'tsconfig-utils'
+import { load } from 'tsconfig-utils'
 
 // load a tsconfig.json file,
 // resolving "extends" fields recursively
-await tsconfig('/path/to/tsconfig.json')
+const config = await load('/path/to/project')
+
+config.get('noEmit') // false
+
+// load with additional args
+// args will take precedence over tsconfig files
+const config = await load(process.cwd(), [
+  '-p', 'tsconfig.base.json',
+  '--noEmit',
+])
+
+config.get('noEmit') // true
 ```
