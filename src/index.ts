@@ -1,9 +1,9 @@
 import { CompilerOptions } from 'typescript'
-import { SpawnOptions } from 'child_process'
+import { spawn, SpawnOptions } from 'child_process'
 import { readFile } from 'fs/promises'
 import { dirname, resolve } from 'path'
 import { alias, boolean } from './types'
-import spawn from 'cross-spawn'
+import which from 'which-pm-runs'
 import json5 from 'json5'
 
 export class TsConfig {
@@ -83,6 +83,8 @@ function spawnAsync(args: string[], options?: SpawnOptions) {
 }
 
 export async function compile(args: string[], options?: SpawnOptions) {
-  const code = await spawnAsync(['tsc', ...args], options)
+  const agent = which()
+  const prefix = agent ? [agent.name, 'exec', '--'] : []
+  const code = await spawnAsync([...prefix, 'tsc', ...args], options)
   if (code) process.exit(code)
 }
