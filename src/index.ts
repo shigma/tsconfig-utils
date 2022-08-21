@@ -1,8 +1,8 @@
 import { CompilerOptions } from 'typescript'
-import { spawn, SpawnOptions } from 'child_process'
 import { readFile } from 'fs/promises'
 import { dirname, resolve } from 'path'
 import { alias, boolean } from './types'
+import spawn from 'execa'
 import which from 'which-pm-runs'
 import json5 from 'json5'
 
@@ -75,14 +75,14 @@ export async function load(cwd: string, args: string[] = []) {
   return config
 }
 
-function spawnAsync(args: string[], options?: SpawnOptions) {
+function spawnAsync(args: string[], options?: spawn.Options) {
   const child = spawn(args[0], args.slice(1), { ...options, stdio: 'inherit' })
   return new Promise<number>((resolve) => {
     child.on('close', resolve)
   })
 }
 
-export async function compile(args: string[], options?: SpawnOptions) {
+export async function compile(args: string[], options?: spawn.Options) {
   const agent = which()
   const prefix = agent ? [agent.name, 'exec', '--'] : []
   const code = await spawnAsync([...prefix, 'tsc', ...args], options)
