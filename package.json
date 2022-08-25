@@ -1,7 +1,7 @@
 {
   "name": "tsconfig-utils",
   "description": "A collection of utilities for working with `tsconfig.json` files",
-  "version": "2.0.3",
+  "version": "2.0.4",
   "main": "lib/index.js",
   "typings": "lib/index.d.ts",
   "files": [

@@ -84,7 +84,9 @@ function spawnAsync(args: string[], options?: spawn.Options) {
 
 export async function compile(args: string[], options?: spawn.Options) {
   const agent = which()
-  const prefix = agent ? [agent.name, 'exec', '--'] : []
+  const prefix = !agent ? []
+    : agent.name === 'yarn' ? ['yarn']
+    : [agent.name, 'exec', '--']
   const code = await spawnAsync([...prefix, 'tsc', ...args], options)
   if (code) process.exit(code)
 }
