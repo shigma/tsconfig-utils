@@ -3,6 +3,7 @@ import { readFile } from 'fs/promises'
 import { dirname, resolve } from 'path'
 import { alias, boolean } from './types'
 import { fork, ForkOptions } from 'child_process'
+import { createRequire } from 'module'
 import json5 from 'json5'
 
 export class TsConfig {
@@ -60,15 +61,30 @@ export async function load(cwd: string, args: string[] = []) {
   const config = new TsConfig(cwd, args)
   let filename = resolve(cwd, config.get('project', 'tsconfig.json'))
   const data = await read(filename)
-  while (data.extends) {
-    filename = resolve(dirname(filename), data.extends + '.json')
-    if (!filename.endsWith('.json')) filename += '.json'
-    const parent = await read(filename)
-    data.compilerOptions = {
-      ...parent.compilerOptions,
-      ...data.compilerOptions,
+  async function loadPaths() {
+    const paths = data.extends.startsWith('.')
+      ? [resolve(dirname(filename), data.extends)]
+      : createRequire(filename).resolve.paths(data.extends)
+    for (const path of paths) {
+      try {
+        const name = path.endsWith('.json') ? path : path + '.json'
+        const parent = await read(filename)
+        data.compilerOptions = {
+          ...parent.compilerOptions,
+          ...data.compilerOptions,
+        }
+        filename = name
+        data.extends = parent.extends
+        return
+      } catch (error) {
+        if (error.code !== 'ENOENT') throw error
+      }
     }
-    data.extends = parent.extends
+    throw new Error(`Cannot resolve "${data.extends}" in "${filename}`)
+  }
+
+  while (data.extends) {
+    await loadPaths()
   }
   Object.assign(config, data)
   return config
