@@ -57,12 +57,17 @@ export async function read(filename: string) {
   return data
 }
 
+function makeArray(value: string | string[]) {
+  return Array.isArray(value) ? value : value ? [value] : []
+}
+
 export async function load(cwd: string, args: string[] = []) {
   const config = new TsConfig(cwd, args)
   let filename = resolve(cwd, config.get('project', 'tsconfig.json'))
   const data = await read(filename)
-  async function loadPaths() {
-    const paths = data.extends.startsWith('.')
+  const queue = makeArray(data.extends)
+  outer: while (queue.length) {
+    const paths = queue.pop().startsWith('.')
       ? [resolve(dirname(filename), data.extends)]
       : createRequire(filename).resolve.paths(data.extends)
     for (const path of paths) {
@@ -72,19 +77,19 @@ export async function load(cwd: string, args: string[] = []) {
         data.compilerOptions = {
           ...parent.compilerOptions,
           ...data.compilerOptions,
+          types: [
+            ...parent.compilerOptions.types ?? [],
+            ...data.compilerOptions.types ?? [],
+          ],
         }
         filename = name
-        data.extends = parent.extends
-        return
+        queue.push(...makeArray(parent.extends))
+        continue outer
       } catch (error) {
         if (error.code !== 'ENOENT') throw error
       }
     }
     throw new Error(`Cannot resolve "${data.extends}" in "${filename}`)
-  }
-
-  while (data.extends) {
-    await loadPaths()
   }
   Object.assign(config, data)
   return config
