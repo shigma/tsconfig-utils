@@ -67,13 +67,14 @@ export async function load(cwd: string, args: string[] = []) {
   const data = await read(filename)
   const queue = makeArray(data.extends)
   outer: while (queue.length) {
-    const paths = queue.pop().startsWith('.')
-      ? [resolve(dirname(filename), data.extends)]
-      : createRequire(filename).resolve.paths(data.extends)
+    const final = queue.pop()
+    const paths = final.startsWith('.')
+      ? [resolve(dirname(filename), final)]
+      : createRequire(filename).resolve.paths(final).map(path => resolve(path, final))
     for (const path of paths) {
       try {
         const name = path.endsWith('.json') ? path : path + '.json'
-        const parent = await read(filename)
+        const parent = await read(name)
         data.compilerOptions = {
           ...parent.compilerOptions,
           ...data.compilerOptions,
@@ -89,7 +90,7 @@ export async function load(cwd: string, args: string[] = []) {
         if (error.code !== 'ENOENT') throw error
       }
     }
-    throw new Error(`Cannot resolve "${data.extends}" in "${filename}`)
+    throw new Error(`Cannot resolve "${final}" in "${filename}`)
   }
   Object.assign(config, data)
   return config
