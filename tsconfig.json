@@ -2,13 +2,13 @@
   "compilerOptions": {
     "outDir": "lib",
     "rootDir": "src",
-    "target": "es2019",
-    "module": "commonjs",
+    "target": "es2022",
+    "module": "nodenext",
+    "sourceMap": true,
     "declaration": true,
     "skipLibCheck": true,
     "esModuleInterop": true,
-    "moduleResolution": "node",
-    "strictBindCallApply": true,
+    "strict": true,
   },
   "include": [
     "src",
