@@ -4,7 +4,6 @@ import { dirname, resolve } from 'path'
 import { alias, boolean } from './types.js'
 import { fork, ForkOptions } from 'child_process'
 import { createRequire } from 'module'
-import { fileURLToPath } from 'url'
 import json5 from 'json5'
 
 export class TsConfig {
@@ -98,7 +97,7 @@ export async function load(cwd: string, args: string[] = []) {
 }
 
 export async function compile(args: string[], options?: ForkOptions) {
-  const path = fileURLToPath(import.meta.resolve('typescript/bin/tsc'))
+  const path = createRequire(import.meta.url).resolve('typescript/bin/tsc')
   const child = fork(path, args, { stdio: 'inherit', ...options })
   return new Promise<number>((resolve) => {
     child.on('close', resolve)
