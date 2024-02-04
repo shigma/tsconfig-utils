@@ -16,7 +16,7 @@ export class TsConfig {
 
   private index(key: string) {
     const names = [key, ...alias[key] || []].map(word => word.length > 1 ? `--${word}` : `-${word}`)
-    return this.args.findIndex(arg => names.some(name => arg.toLowerCase() === name))
+    return this.args.findIndex(arg => names.some(name => arg === name))
   }
 
   get(key: string, fallback: string): string
