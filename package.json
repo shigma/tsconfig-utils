@@ -1,7 +1,7 @@
 {
   "name": "tsconfig-utils",
   "description": "A collection of utilities for working with `tsconfig.json` files",
-  "version": "4.0.5",
+  "version": "4.1.1",
   "type": "module",
   "main": "lib/index.js",
   "typings": "lib/index.d.ts",
@@ -26,8 +26,8 @@
     "typescript": "*"
   },
   "devDependencies": {
-    "@types/node": "^20.10.2",
-    "typescript": "^5.3.2"
+    "@types/node": "^22.7.5",
+    "typescript": "^5.6.2"
   },
   "dependencies": {
     "json5": "^2.2.3"

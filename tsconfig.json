@@ -4,7 +4,6 @@
     "rootDir": "src",
     "target": "es2022",
     "module": "nodenext",
-    "sourceMap": true,
     "declaration": true,
     "skipLibCheck": true,
     "esModuleInterop": true,

@@ -1,6 +1,6 @@
 import { CompilerOptions } from 'typescript'
 import { readFile } from 'fs/promises'
-import { dirname, resolve } from 'path'
+import { resolve } from 'path'
 import { alias, boolean } from './types.js'
 import { fork, ForkOptions } from 'child_process'
 import { createRequire } from 'module'
@@ -19,8 +19,8 @@ export class TsConfig {
     return this.args.findIndex(arg => names.some(name => arg === name))
   }
 
+  get<K extends keyof CompilerOptions>(key: K): CompilerOptions[K]
   get(key: string, fallback: string): string
-  get<K extends string>(key: K): CompilerOptions[K]
   get(key: string, fallback?: any) {
     const index = this.index(key)
     if (index < 0) return fallback ?? this.compilerOptions[key]
@@ -47,14 +47,11 @@ export namespace TsConfig {
   }
 }
 
-const cache = new Map<string, TsConfig>()
+export class TsConfigError extends Error {}
 
 export async function read(filename: string) {
-  if (cache.has(filename)) return cache.get(filename)!
   const source = await readFile(filename, 'utf8')
-  const data = json5.parse(source) as TsConfig
-  cache.set(filename, data)
-  return data
+  return json5.parse(source) as TsConfig
 }
 
 function makeArray(value: undefined | string | string[]) {
@@ -63,36 +60,22 @@ function makeArray(value: undefined | string | string[]) {
 
 export async function load(cwd: string, args: string[] = []) {
   const config = new TsConfig(cwd, args)
-  let filename = resolve(cwd, config.get('project', 'tsconfig.json'))
-  const data = await read(filename)
-  const queue = makeArray(data.extends)
-  outer: while (queue.length) {
-    const final = queue.pop()!
-    const paths = final.startsWith('.')
-      ? [resolve(dirname(filename), final)]
-      : createRequire(filename).resolve.paths(final)!.map(path => resolve(path, final))
-    for (const path of paths) {
-      try {
-        const name = path.endsWith('.json') ? path : path + '.json'
-        const parent = await read(name)
-        data.compilerOptions = {
-          ...parent.compilerOptions,
-          ...data.compilerOptions,
-          types: [
-            ...parent.compilerOptions.types ?? [],
-            ...data.compilerOptions.types ?? [],
-          ],
-        }
-        filename = name
-        queue.push(...makeArray(parent.extends))
-        continue outer
-      } catch (error: any) {
-        if (error.code !== 'ENOENT') throw error
-      }
+  const filename = resolve(cwd, config.get('project', 'tsconfig.json'))
+  Object.assign(config, await read(filename))
+  const queue = makeArray(config.extends).map(path => createRequire(filename).resolve(path))
+  while (queue.length) {
+    const filename = queue.pop()!
+    const parent = await read(filename)
+    config.compilerOptions = {
+      ...parent.compilerOptions,
+      ...config.compilerOptions,
+      types: [
+        ...parent.compilerOptions.types ?? [],
+        ...config.compilerOptions.types ?? [],
+      ],
     }
-    throw new Error(`Cannot resolve "${final}" in "${filename}`)
+    queue.push(...makeArray(parent.extends).map(path => createRequire(filename).resolve(path)))
   }
-  Object.assign(config, data)
   return config
 }
 
